@@ -16,26 +16,13 @@
 #
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-ABSEIL_COMMIT = "99477fa9f1e89a7d8253c8aeee331864710d080c"
-ABSEIL_SHA256 = "495e8e1c481018126b2a84bfe36e273907ce282b135e7d161e138e463d295f3d"
-
-def absl_repositories(bind=True):
-    http_archive(
-        name = "com_google_absl",
-        strip_prefix = "abseil-cpp-" + ABSEIL_COMMIT,
-        url = "https://github.com/abseil/abseil-cpp/archive/" + ABSEIL_COMMIT + ".tar.gz",
-        sha256 = ABSEIL_SHA256,
-    )
-
 PROTOBUF_COMMIT = "106ffc04be1abf3ff3399f54ccf149815b287dd9"  # v3.5.1
 PROTOBUF_SHA256 = "ebc5f911ae580234da9cbcff03b841395bd97861efc82f67a165c5c3d366f2c6"
 
 def protobuf_repositories(bind=True):
-    http_archive(
+    native.local_repository(
         name = "protobuf_git",
-        strip_prefix = "protobuf-" + PROTOBUF_COMMIT,
-        url = "https://github.com/google/protobuf/archive/" + PROTOBUF_COMMIT + ".tar.gz",
-        sha256 = PROTOBUF_SHA256,
+        path = "/usr/src/protobuf",
     )
 
     if bind:
@@ -73,197 +60,159 @@ GOOGLETEST_COMMIT = "43863938377a9ea1399c0596269e0890b5c5515a"
 GOOGLETEST_SHA256 = "7c8ece456ad588c30160429498e108e2df6f42a30888b3ec0abf5d9792d9d3a0"
 
 def googletest_repositories(bind=True):
-    BUILD = """
-# Copyright 2016 Google Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-################################################################################
-#
-
-cc_library(
-    name = "googletest",
-    srcs = [
-        "googletest/src/gtest-all.cc",
-        "googlemock/src/gmock-all.cc",
-    ],
-    hdrs = glob([
-        "googletest/include/**/*.h",
-        "googlemock/include/**/*.h",
-        "googletest/src/*.cc",
-        "googletest/src/*.h",
-        "googlemock/src/*.cc",
-    ]),
-    includes = [
-        "googlemock",
-        "googletest",
-        "googletest/include",
-        "googlemock/include",
-    ],
-    visibility = ["//visibility:public"],
-)
-
-cc_library(
-    name = "googletest_main",
-    srcs = ["googlemock/src/gmock_main.cc"],
-    visibility = ["//visibility:public"],
-    linkopts = [
-        "-lpthread",
-    ],
-    deps = [":googletest"],
-)
-
-cc_library(
-    name = "googletest_prod",
-    hdrs = [
-        "googletest/include/gtest/gtest_prod.h",
-    ],
-    includes = [
-        "googletest/include",
-    ],
-    visibility = ["//visibility:public"],
-)
-"""
-    http_archive(
-        name = "googletest_git",
-        strip_prefix = "googletest-" + GOOGLETEST_COMMIT,
-        build_file_content = BUILD,
-        url = "https://github.com/google/googletest/archive/" + GOOGLETEST_COMMIT + ".tar.gz",
-        sha256 = GOOGLETEST_SHA256,
-    )
-
-    if bind:
-        native.bind(
-            name = "googletest",
-            actual = "@googletest_git//:googletest",
-        )
-
-        native.bind(
-            name = "googletest_main",
-            actual = "@googletest_git//:googletest_main",
-        )
-
-        native.bind(
-            name = "googletest_prod",
-            actual = "@googletest_git//:googletest_prod",
-        )
+    pass
 
 GOOGLEAPIS_COMMIT = "5c6df0cd18c6a429eab739fb711c27f6e1393366" # May 14, 2017
 GOOGLEAPIS_SHA256 = "c6ce26246232c0f3e78d3a30f087444ec01c8ee64b34d058bfcd4f0f4a387a0b"
 
 def googleapis_repositories(protobuf_repo="@protobuf_git//", bind=True):
     BUILD = """
-# Copyright 2016 Google Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-################################################################################
-#
-
-licenses(["notice"])
-
-load("{0}:protobuf.bzl", "cc_proto_library")
-
-exports_files(glob(["google/**"]))
-
+load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library", "py_proto_library")
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+filegroup(
+    name = "api_httpbody_protos_src",
+    srcs = [
+        "google/api/httpbody.proto",
+    ],
+    visibility = ["//visibility:public"],
+)
+proto_library(
+    name = "api_httpbody_protos_proto",
+    srcs = [":api_httpbody_protos_src"],
+    deps = ["@com_google_protobuf//:descriptor_proto"],
+    visibility = ["//visibility:public"],
+)
+cc_proto_library(
+    name = "api_httpbody_protos",
+    srcs = [
+        "google/api/httpbody.proto",
+    ],
+    default_runtime = "@com_google_protobuf//:protobuf",
+    protoc = "@com_google_protobuf//:protoc",
+    deps = ["@com_google_protobuf//:cc_wkt_protos"],
+    visibility = ["//visibility:public"],
+)
+py_proto_library(
+    name = "api_httpbody_protos_py",
+    srcs = [
+        "google/api/httpbody.proto",
+    ],
+    include = ".",
+    default_runtime = "@com_google_protobuf//:protobuf_python",
+    protoc = "@com_google_protobuf//:protoc",
+    visibility = ["//visibility:public"],
+    deps = ["@com_google_protobuf//:protobuf_python"],
+)
+go_proto_library(
+    name = "api_httpbody_go_proto",
+    importpath = "google.golang.org/genproto/googleapis/api/httpbody",
+    proto = ":api_httpbody_protos_proto",
+    visibility = ["//visibility:public"],
+    deps = [
+      ":descriptor_go_proto",
+    ],
+)
+filegroup(
+    name = "http_api_protos_src",
+    srcs = [
+        "google/api/annotations.proto",
+        "google/api/http.proto",
+    ],
+    visibility = ["//visibility:public"],
+)
+go_proto_library(
+    name = "descriptor_go_proto",
+    importpath = "github.com/golang/protobuf/protoc-gen-go/descriptor",
+    proto = "@com_google_protobuf//:descriptor_proto",
+    visibility = ["//visibility:public"],
+)
+proto_library(
+    name = "http_api_protos_proto",
+    srcs = [":http_api_protos_src"],
+    deps = ["@com_google_protobuf//:descriptor_proto"],
+    visibility = ["//visibility:public"],
+)
 cc_proto_library(
     name = "http_api_protos",
     srcs = [
         "google/api/annotations.proto",
         "google/api/http.proto",
     ],
-    default_runtime = "//external:protobuf",
-    protoc = "//external:protoc",
+    default_runtime = "@com_google_protobuf//:protobuf",
+    protoc = "@com_google_protobuf//:protoc",
+    deps = ["@com_google_protobuf//:cc_wkt_protos"],
     visibility = ["//visibility:public"],
-    deps = ["{0}:cc_wkt_protos"],
 )
-
-cc_proto_library(
-    name = "servicecontrol",
+py_proto_library(
+    name = "http_api_protos_py",
     srcs = [
-        "google/api/servicecontrol/v1/check_error.proto",
-        "google/api/servicecontrol/v1/distribution.proto",
-        "google/api/servicecontrol/v1/log_entry.proto",
-        "google/api/servicecontrol/v1/metric_value.proto",
-        "google/api/servicecontrol/v1/operation.proto",
-        "google/api/servicecontrol/v1/service_controller.proto",
-        "google/logging/type/http_request.proto",
-        "google/logging/type/log_severity.proto",
-        "google/rpc/error_details.proto",
-        "google/rpc/status.proto",
-        "google/type/money.proto",
+        "google/api/annotations.proto",
+        "google/api/http.proto",
     ],
     include = ".",
+    default_runtime = "@com_google_protobuf//:protobuf_python",
+    protoc = "@com_google_protobuf//:protoc",
+    visibility = ["//visibility:public"],
+    deps = ["@com_google_protobuf//:protobuf_python"],
+)
+go_proto_library(
+    name = "http_api_go_proto",
+    importpath = "google.golang.org/genproto/googleapis/api/annotations",
+    proto = ":http_api_protos_proto",
     visibility = ["//visibility:public"],
     deps = [
-        ":service_config",
+      ":descriptor_go_proto",
     ],
-    protoc = "//external:protoc",
-    default_runtime = "//external:protobuf",
 )
-
+filegroup(
+     name = "rpc_status_protos_src",
+     srcs = [
+         "google/rpc/status.proto",
+     ],
+     visibility = ["//visibility:public"],
+)
+proto_library(
+     name = "rpc_status_protos_lib",
+     srcs = [":rpc_status_protos_src"],
+     deps = ["@com_google_protobuf//:any_proto"],
+     visibility = ["//visibility:public"],
+)
 cc_proto_library(
-    name = "service_config",
-    srcs = [
-        "google/api/auth.proto",
-        "google/api/backend.proto",
-        "google/api/billing.proto",
-        "google/api/consumer.proto",
-        "google/api/context.proto",
-        "google/api/control.proto",
-        "google/api/documentation.proto",
-        "google/api/endpoint.proto",
-        "google/api/label.proto",
-        "google/api/log.proto",
-        "google/api/logging.proto",
-        "google/api/metric.proto",
-        "google/api/experimental/experimental.proto",
-        "google/api/experimental/authorization_config.proto",
-        "google/api/monitored_resource.proto",
-        "google/api/monitoring.proto",
-        "google/api/quota.proto",
-        "google/api/service.proto",
-        "google/api/source_info.proto",
-        "google/api/system_parameter.proto",
-        "google/api/usage.proto",
-    ],
-    include = ".",
+     name = "rpc_status_protos",
+     srcs = ["google/rpc/status.proto"],
+     default_runtime = "@com_google_protobuf//:protobuf",
+     protoc = "@com_google_protobuf//:protoc",
+     deps = [
+         "@com_google_protobuf//:cc_wkt_protos"
+     ],
+     visibility = ["//visibility:public"],
+)
+go_proto_library(
+    name = "rpc_status_go_proto",
+    importpath = "google.golang.org/genproto/googleapis/rpc/status",
+    proto = ":rpc_status_protos_lib",
     visibility = ["//visibility:public"],
     deps = [
-        ":http_api_protos",
-        "//external:cc_wkt_protos",
+      "@com_github_golang_protobuf//ptypes/any:go_default_library",
     ],
-    protoc = "//external:protoc",
-    default_runtime = "//external:protobuf",
 )
-""".format(protobuf_repo)
+py_proto_library(
+     name = "rpc_status_protos_py",
+     srcs = [
+         "google/rpc/status.proto",
+     ],
+     include = ".",
+     default_runtime = "@com_google_protobuf//:protobuf_python",
+     protoc = "@com_google_protobuf//:protoc",
+     visibility = ["//visibility:public"],
+     deps = ["@com_google_protobuf//:protobuf_python"],
+)
+"""
 
-    http_archive(
+    native.new_local_repository(
         name = "googleapis_git",
-        strip_prefix = "googleapis-" + GOOGLEAPIS_COMMIT,
-        url = "https://github.com/googleapis/googleapis/archive/" + GOOGLEAPIS_COMMIT + ".tar.gz",
+        path = "/usr/src/googleapis",
         build_file_content = BUILD,
-        sha256 = GOOGLEAPIS_SHA256,
     )
 
     if bind:
